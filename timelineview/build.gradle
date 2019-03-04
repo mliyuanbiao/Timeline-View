@@ -1,4 +1,6 @@
 apply plugin: 'com.android.library'
+apply plugin: 'com.github.dcendents.android-maven'
+
 
 ext {
     bintrayRepo = 'maven'
@@ -42,8 +44,8 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.annotation:annotation:1.0.1'
+    implementation 'androidx.annotation:annotation:1.0.2'
 }
 
-apply from: 'https://raw.githubusercontent.com/vipulasri/BintrayHelper/master/install.gradle'
-apply from: 'https://raw.githubusercontent.com/vipulasri/BintrayHelper/master/bintray.gradle'
+// apply from: 'https://raw.githubusercontent.com/vipulasri/BintrayHelper/master/install.gradle'
+// apply from: 'https://raw.githubusercontent.com/vipulasri/BintrayHelper/master/bintray.gradle'

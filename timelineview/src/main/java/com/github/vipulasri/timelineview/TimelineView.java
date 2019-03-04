@@ -9,12 +9,13 @@ import android.graphics.PathEffect;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import androidx.annotation.IntDef;
 import android.util.AttributeSet;
 import android.view.View;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+
+import androidx.annotation.IntDef;
 
 /**
  * Created by Vipul Asri on 05-12-2015.
@@ -32,7 +33,7 @@ public class TimelineView extends View {
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({LineType.NORMAL, LineType.START, LineType.END, LineType.ONLYONE})
-    private @interface LineType {
+    public @interface LineType {
         int NORMAL = 0;
         int START = 1;
         int END = 2;
@@ -49,7 +50,8 @@ public class TimelineView extends View {
     private Drawable mMarker;
     private int mMarkerSize;
     private boolean mMarkerInCenter;
-    private Paint mLinePaint = new Paint();
+    private Paint mStartLinePaint = new Paint();
+    private Paint mEndLinePaint = new Paint();
     private boolean mDrawStartLine = false;
     private boolean mDrawEndLine = false;
     private float mStartLineStartX, mStartLineStartY, mStartLineStopX, mStartLineStopY;
@@ -63,6 +65,11 @@ public class TimelineView extends View {
     private int mLineStyleDashGap;
     private int mLinePadding;
 
+    private int mStartLineWidth;
+    private int mEndLineWidth;
+    private int mStartLineStyle;
+    private int mEndLineStyle;
+
     private Rect mBounds;
 
     public TimelineView(Context context, AttributeSet attrs) {
@@ -71,7 +78,7 @@ public class TimelineView extends View {
     }
 
     private void init(AttributeSet attrs) {
-        TypedArray typedArray = getContext().obtainStyledAttributes(attrs,R.styleable.TimelineView);
+        TypedArray typedArray = getContext().obtainStyledAttributes(attrs, R.styleable.TimelineView);
         mMarker = typedArray.getDrawable(R.styleable.TimelineView_marker);
         mMarkerSize = typedArray.getDimensionPixelSize(R.styleable.TimelineView_markerSize, Utils.dpToPx(20, getContext()));
         mMarkerInCenter = typedArray.getBoolean(R.styleable.TimelineView_markerInCenter, true);
@@ -83,14 +90,20 @@ public class TimelineView extends View {
         mLineStyle = typedArray.getInt(R.styleable.TimelineView_lineStyle, LineStyle.NORMAL);
         mLineStyleDashLength = typedArray.getDimensionPixelSize(R.styleable.TimelineView_lineStyleDashLength, Utils.dpToPx(8f, getContext()));
         mLineStyleDashGap = typedArray.getDimensionPixelSize(R.styleable.TimelineView_lineStyleDashGap, Utils.dpToPx(4f, getContext()));
+
+        mStartLineWidth = typedArray.getDimensionPixelSize(R.styleable.TimelineView_startLineWidth, mLineWidth);
+        mEndLineWidth = typedArray.getDimensionPixelSize(R.styleable.TimelineView_endLineWidth, mLineWidth);
+
+        mStartLineStyle = typedArray.getInt(R.styleable.TimelineView_startLineStyle, mLineStyle);
+        mEndLineStyle = typedArray.getInt(R.styleable.TimelineView_endLineStyle, mLineStyle);
         typedArray.recycle();
 
-        if(isInEditMode()) {
+        if (isInEditMode()) {
             mDrawStartLine = true;
             mDrawEndLine = true;
         }
 
-        if(mMarker == null) {
+        if (mMarker == null) {
             mMarker = getResources().getDrawable(R.drawable.marker);
         }
 
@@ -136,31 +149,31 @@ public class TimelineView extends View {
 
         int markSize = Math.min(mMarkerSize, Math.min(cWidth, cHeight));
 
-        if(mMarkerInCenter) { //Marker in center is true
+        if (mMarkerInCenter) { //Marker in center is true
 
-            if(mMarker != null) {
-                mMarker.setBounds((width/2) - (markSize/2),(height/2) - (markSize/2), (width/2) + (markSize/2),(height/2) + (markSize/2));
+            if (mMarker != null) {
+                mMarker.setBounds((width / 2) - (markSize / 2), (height / 2) - (markSize / 2), (width / 2) + (markSize / 2), (height / 2) + (markSize / 2));
                 mBounds = mMarker.getBounds();
             }
 
         } else { //Marker in center is false
 
-            if(mMarker != null) {
-                mMarker.setBounds(pLeft, pTop,pLeft + markSize,pTop + markSize);
+            if (mMarker != null) {
+                mMarker.setBounds(pLeft, pTop, pLeft + markSize, pTop + markSize);
                 mBounds = mMarker.getBounds();
             }
         }
 
-        if(mLineOrientation == LineOrientation.HORIZONTAL) {
+        if (mLineOrientation == LineOrientation.HORIZONTAL) {
 
-            if(mDrawStartLine) {
+            if (mDrawStartLine) {
                 mStartLineStartX = pLeft;
                 mStartLineStartY = mBounds.centerY();
                 mStartLineStopX = mBounds.left - mLinePadding;
                 mStartLineStopY = mBounds.centerY();
             }
 
-            if(mDrawEndLine) {
+            if (mDrawEndLine) {
                 mEndLineStartX = mBounds.right + mLinePadding;
                 mEndLineStartY = mBounds.centerY();
                 mEndLineStopX = getWidth();
@@ -168,10 +181,10 @@ public class TimelineView extends View {
             }
         } else {
 
-            if(mDrawStartLine) {
+            if (mDrawStartLine) {
                 mStartLineStartX = mBounds.centerX();
 
-                if(mLineStyle == LineStyle.DASHED) {
+                if (mLineStyle == LineStyle.DASHED) {
                     mStartLineStartY = pTop - mLineStyleDashLength;
                 } else {
                     mStartLineStartY = pTop;
@@ -181,7 +194,7 @@ public class TimelineView extends View {
                 mStartLineStopY = mBounds.top - mLinePadding;
             }
 
-            if(mDrawEndLine) {
+            if (mDrawEndLine) {
                 mEndLineStartX = mBounds.centerX();
                 mEndLineStartY = mBounds.bottom + mLinePadding;
                 mEndLineStopX = mBounds.centerX();
@@ -193,16 +206,30 @@ public class TimelineView extends View {
     }
 
     private void initLinePaint() {
-        mLinePaint.setAlpha(0);
-        mLinePaint.setAntiAlias(true);
-        mLinePaint.setColor(mStartLineColor);
-        mLinePaint.setStyle(Paint.Style.STROKE);
-        mLinePaint.setStrokeWidth(mLineWidth);
+        mStartLinePaint.setAlpha(0);
+        mStartLinePaint.setAntiAlias(true);
+        mStartLinePaint.setColor(mStartLineColor);
+        mStartLinePaint.setStyle(Paint.Style.STROKE);
+        mStartLinePaint.setStrokeWidth(mStartLineWidth);
 
-        if (mLineStyle == LineStyle.DASHED)
-            mLinePaint.setPathEffect(new DashPathEffect(new float[]{(float) mLineStyleDashLength, (float) mLineStyleDashGap}, 0.0f));
-        else
-            mLinePaint.setPathEffect(new PathEffect());
+        if (mStartLineStyle == LineStyle.DASHED) {
+            mStartLinePaint.setPathEffect(new DashPathEffect(new float[]{(float) mLineStyleDashLength, (float) mLineStyleDashGap}, 0.0f));
+        } else {
+            mStartLinePaint.setPathEffect(new PathEffect());
+        }
+
+
+        mEndLinePaint.setAlpha(0);
+        mEndLinePaint.setAntiAlias(true);
+        mEndLinePaint.setColor(mEndLineColor);
+        mEndLinePaint.setStyle(Paint.Style.STROKE);
+        mEndLinePaint.setStrokeWidth(mEndLineWidth);
+
+        if (mEndLineStyle == LineStyle.DASHED) {
+            mEndLinePaint.setPathEffect(new DashPathEffect(new float[]{(float) mLineStyleDashLength, (float) mLineStyleDashGap}, 0.0f));
+        } else {
+            mEndLinePaint.setPathEffect(new PathEffect());
+        }
 
         invalidate();
     }
@@ -210,20 +237,18 @@ public class TimelineView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if(mMarker != null) {
+        if (mMarker != null) {
             mMarker.draw(canvas);
         }
 
-        if(mDrawStartLine) {
-            mLinePaint.setColor(mStartLineColor);
+        if (mDrawStartLine) {
             invalidate();
-            canvas.drawLine(mStartLineStartX, mStartLineStartY, mStartLineStopX, mStartLineStopY, mLinePaint);
+            canvas.drawLine(mStartLineStartX, mStartLineStartY, mStartLineStopX, mStartLineStopY, mStartLinePaint);
         }
 
-        if(mDrawEndLine) {
-            mLinePaint.setColor(mEndLineColor);
+        if (mDrawEndLine) {
             invalidate();
-            canvas.drawLine(mEndLineStartX, mEndLineStartY, mEndLineStopX, mEndLineStopY, mLinePaint);
+            canvas.drawLine(mEndLineStartX, mEndLineStartY, mEndLineStopX, mEndLineStopY, mEndLinePaint);
         }
     }
 
@@ -319,19 +344,34 @@ public class TimelineView extends View {
     /**
      * Sets line width.
      *
-     * @param lineWidth the line width
+     * @param mStartLineWidth the start line width
+     * @param mEndLineWidth   the end line width
      */
-    public void setLineWidth(int lineWidth) {
-        mLineWidth = lineWidth;
+    public void setLineWidth(int mStartLineWidth, int mEndLineWidth) {
+        this.mStartLineWidth = mStartLineWidth;
+        this.mEndLineWidth = mEndLineWidth;
         initTimeline();
+    }
+
+    public void setLineWidth(int mLineWidth) {
+        setLineWidth(mLineWidth, mLineWidth);
     }
 
     public int getLineWidth() {
         return mLineWidth;
     }
 
+    public int getStartLineWidth() {
+        return mStartLineWidth;
+    }
+
+    public int getEndLineWidth() {
+        return mEndLineWidth;
+    }
+
     /**
      * Sets line padding
+     *
      * @param padding the line padding
      */
     public void setLinePadding(int padding) {
@@ -347,12 +387,25 @@ public class TimelineView extends View {
         this.mLineOrientation = lineOrientation;
     }
 
+    public int getStartLineStyle() {
+        return mStartLineStyle;
+    }
+
+    public int getEndLineStyle() {
+        return mEndLineStyle;
+    }
+
     public int getLineStyle() {
         return mLineStyle;
     }
 
-    public void setLineStyle(int lineStyle) {
-        this.mLineStyle = lineStyle;
+    public void setLineStyle(int mLineStyle) {
+        setLineStyle(mLineStyle, mLineStyle);
+    }
+
+    public void setLineStyle(int mStartLineStyle, int mEndLineStyle) {
+        this.mStartLineStyle = mStartLineStyle;
+        this.mEndLineStyle = mEndLineStyle;
         initLinePaint();
     }
 
@@ -394,13 +447,13 @@ public class TimelineView extends View {
      * @param viewType the view type
      */
     public void initLine(int viewType) {
-        if(viewType == LineType.START) {
+        if (viewType == LineType.START) {
             showStartLine(false);
             showEndLine(true);
-        } else if(viewType == LineType.END) {
+        } else if (viewType == LineType.END) {
             showStartLine(true);
             showEndLine(false);
-        } else if(viewType == LineType.ONLYONE) {
+        } else if (viewType == LineType.ONLYONE) {
             showStartLine(false);
             showEndLine(false);
         } else {
@@ -414,16 +467,16 @@ public class TimelineView extends View {
     /**
      * Gets timeline view type.
      *
-     * @param position   the position of current item view
+     * @param position  the position of current item view
      * @param totalSize the total size of the items
      * @return the timeline view type
      */
     public static int getTimeLineViewType(int position, int totalSize) {
-        if(totalSize == 1) {
+        if (totalSize == 1) {
             return LineType.ONLYONE;
-        } else if(position == 0) {
+        } else if (position == 0) {
             return LineType.START;
-        } else if(position == totalSize - 1) {
+        } else if (position == totalSize - 1) {
             return LineType.END;
         } else {
             return LineType.NORMAL;
